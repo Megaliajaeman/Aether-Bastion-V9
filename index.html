@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AETHER BASTION V9 // 전술 요새 방어전</title>
+  <link id="mainStylesheet" rel="stylesheet" href="./css/styles.css" onerror="this.onerror=null;this.href='./styles.css';" />
+</head>
+<body class="relative w-screen h-screen overflow-hidden select-none">
+
+  <!-- Full-Viewport Tactical Canvas -->
+  <canvas id="gameCanvas" class="block w-full h-full cursor-pointer"></canvas>
+
+  <!-- Top Tactical HUD -->
+  <header class="fixed top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+    <!-- Left Status Cluster -->
+    <div class="flex flex-wrap items-center gap-2 pointer-events-auto">
+      <div class="glass-panel rounded-2xl px-3-5 py-2 flex items-center gap-2-5">
+        <div class="w-2-5 h-2-5 rounded-full bg-amber-400 animate-ping"></div>
+        <div>
+          <div class="flex items-center gap-1-5">
+            <span class="text-10 uppercase tracking-wider text-amber-300/80 font-orbitron">WAVE</span>
+            <span id="hudModeBadge" class="text-10 font-bold px-1-5 py-0-2 rounded bg-amber-500/20 text-amber-200 border border-amber-400/30">STAGE I</span>
+            <span id="hudNextAugmentLabel" class="text-10 font-bold px-1-5 py-0-2 rounded bg-violet-500/20 text-violet-200 border border-violet-400/30">증강까지 3W</span>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span id="hudWave" class="font-orbitron text-lg font-extrabold text-white">1/6</span>
+            <span id="hudWaveStatus" class="text-xs text-slate-300">정비 대기</span>
+            <span id="hudEnemyCount" class="text-xs font-semibold text-amber-300"></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="aetherBadge" class="glass-panel rounded-2xl px-3-5 py-2 flex items-center gap-2-5">
+        <div class="w-7 h-7 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 font-bold text-sm">⚡</div>
+        <div>
+          <div class="text-10 uppercase tracking-wider text-cyan-300/80 font-orbitron">AETHER</div>
+          <div id="hudAether" class="font-orbitron text-lg font-extrabold text-cyan-300">260</div>
+        </div>
+      </div>
+
+      <div id="coreStatusPanel" class="glass-panel rounded-2xl px-3-5 py-2 flex items-center gap-2-5 min-w-180">
+        <div class="w-7 h-7 rounded-xl bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-rose-300 font-bold text-sm">♥</div>
+        <div class="flex-1">
+          <div class="flex justify-between items-center text-10 font-orbitron">
+            <span class="text-rose-300/80">CORE</span>
+            <span id="hudHpText" class="text-white font-bold">20/20</span>
+          </div>
+          <div class="w-full h-2 bg-slate-900/90 rounded-full overflow-hidden mt-1 border border-slate-700/80">
+            <div id="hudHpBar" class="h-full bg-gradient-core transition-all duration-200" style="width: 100%"></div>
+          </div>
+          <div id="hudCoreBossWarning" class="hidden text-10 font-bold text-rose-300 mt-0-5">⚠️ 치명적 돌파 위험!</div>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-2xl px-3-5 py-2 hidden sm-flex items-center gap-2-5">
+        <div>
+          <div class="flex items-center gap-2 text-10 uppercase tracking-wider text-amber-300/80 font-orbitron">
+            <span>SCORE</span>
+            <span id="hudBestScore" class="text-slate-300">최고 0</span>
+          </div>
+          <div id="hudScore" class="font-orbitron text-lg font-extrabold text-amber-300">0</div>
+        </div>
+      </div>
+
+      <div id="hudComboBadge" class="glass-panel rounded-2xl px-3 py-1-5 hidden flex-col justify-center border-fuchsia-400/50 bg-fuchsia-950/50">
+        <div class="flex items-center gap-1-5">
+          <span class="text-xs font-bold text-fuchsia-300">⚡</span>
+          <span id="hudComboCount" class="font-orbitron text-xs font-extrabold text-white">연속 반응 1회 (+11%)</span>
+        </div>
+        <div class="w-full h-1 bg-slate-950/90 rounded-full overflow-hidden mt-1">
+          <div id="hudComboTimerBar" class="h-full bg-gradient-combo" style="width: 100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Utility Cluster -->
+    <div class="flex items-center gap-1-5 pointer-events-auto">
+      <button id="btnViewAugments" class="glass-panel rounded-xl px-2-5 py-1-5 text-xs font-bold text-violet-300 hover-text-white border-violet-500/40 cursor-pointer flex items-center gap-1-5" title="보유 전술 증강 확인">
+        <span>🧬 증강</span>
+        <span id="hudAugmentCount" class="font-orbitron bg-violet-500/30 px-1-5 py-0-5 rounded text-white">0</span>
+      </button>
+
+      <button id="btnOpenReport" class="glass-panel rounded-xl px-2-5 py-1-5 text-xs font-bold text-emerald-300 hover-text-white border-emerald-500/40 cursor-pointer" title="2단 전술 전투 통계 보고서">
+        📊 보고서
+      </button>
+
+      <button id="btnOpenSaveLoad" class="glass-panel rounded-xl px-2-5 py-1-5 text-xs font-bold text-amber-300 hover-text-white border-amber-500/40 cursor-pointer" title="현재 작전 저장 및 불러오기">
+        💾 저장/로드
+      </button>
+
+      <div class="glass-panel rounded-xl p-1 flex items-center gap-1">
+        <button data-speed="0" class="speed-btn px-2 py-1 rounded-lg text-xs font-bold text-slate-400 hover-text-amber-300 cursor-pointer" title="일시정지 (Space)">❚❚</button>
+        <button data-speed="1" class="speed-btn px-2 py-1 rounded-lg text-xs font-orbitron font-bold bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 cursor-pointer">1x</button>
+        <button data-speed="2" class="speed-btn px-2 py-1 rounded-lg text-xs font-orbitron font-bold text-slate-400 hover-text-white cursor-pointer">2x</button>
+      </div>
+
+      <div class="glass-panel rounded-xl px-2-5 py-1-5 flex items-center gap-1-5">
+        <button id="btnMute" class="text-slate-300 hover-text-cyan-300 cursor-pointer" title="음소거 전환">
+          <svg id="iconSoundOn" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/></svg>
+          <svg id="iconSoundOff" class="w-4 h-4 hidden text-rose-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/></svg>
+        </button>
+        <input id="volumeSlider" type="range" min="0" max="100" value="62" class="w-12 accent-cyan-400 cursor-pointer hidden md-block" title="볼륨" />
+      </div>
+
+      <button id="btnHelp" class="glass-panel rounded-xl px-2-5 py-1-5 text-xs font-bold text-cyan-300 hover-text-white cursor-pointer" title="전술 도감">
+        ? 도감
+      </button>
+
+      <button id="btnBackToMainMenu" class="glass-panel rounded-xl px-2-5 py-1-5 text-xs font-bold text-slate-300 hover-text-amber-300 cursor-pointer" title="메인 메뉴로 복귀 (자동 저장됨)">
+        🏰 지도/메뉴
+      </button>
+    </div>
+  </header>
+
+  <!-- Expandable Next Wave Intel & Real-time Multi-Route Threat Bar -->
+  <div id="waveBannerContainer" class="fixed top-68 left-half -translate-x-half z-10 w-banner-wide">
+    <button id="waveBanner" type="button" class="w-full glass-panel rounded-full px-4 py-1-5 text-xs flex items-center justify-between gap-2 border-amber-400/30 hover-border-cyan-300/60 cursor-pointer text-left">
+      <div class="flex items-center gap-2 min-w-0">
+        <span id="wavePreviewTitle" class="font-bold text-amber-200 shrink-0">[STAGE I] W1/6:</span>
+        <span id="wavePreviewDesc" class="text-slate-200 truncate">스카웃 크롤러×8</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <span id="waveBonusHint" class="hidden text-amber-300 font-semibold">[조기호출 +18⚡]</span>
+        <span id="waveIntelChevron" class="text-10 text-amber-300 font-bold">▼</span>
+      </div>
+    </button>
+
+    <!-- Real-time 5-Route Threat & Breach Allocation Bar -->
+    <div id="routeThreatBar" class="mt-1-5 glass-panel rounded-2xl px-3 py-1 text-10 flex flex-wrap items-center justify-between gap-1-5 border-slate-700/80">
+      <span id="routeThreatMain" class="font-semibold text-cyan-300">🛣️ 메인: 대기</span>
+      <span id="routeThreatBypass" class="font-semibold text-slate-400">☣️ 우회로(4W)</span>
+      <span id="routeThreatSub" class="hidden font-semibold text-slate-400">🌀 북부균열(5W)</span>
+      <span id="routeThreatEast" class="hidden font-semibold text-slate-400">☄️ 폭격로</span>
+      <span id="routeThreatTunnel" class="hidden font-semibold text-slate-400">🧨 지하갱도</span>
+    </div>
+
+    <!-- Stage 1 Guided Tutorial Banner -->
+    <div id="tutorialGuideBanner" class="hidden mt-1-5 rounded-2xl px-4 py-2 bg-emerald-950/90 border border-emerald-400/50 text-left shadow-lg">
+      <div id="tutStepTitle" class="text-xs font-extrabold text-emerald-300">🎓 훈련 1단계: 요새 거점에 포탑 건설</div>
+      <div id="tutStepDesc" class="text-11 text-emerald-100 mt-0-5">하단에서 [1] 중기관포 벙커를 선택한 뒤, 도로 옆 원형 석조 거점(망치 아이콘)을 클릭해 배치하세요!</div>
+    </div>
+
+    <!-- Prominent Path Breach & Orbital Bombardment Alert Banner -->
+    <div id="pathBreachBanner" class="hidden mt-1-5 rounded-full px-4 py-1-5 bg-rose-950/90 border-2 border-rose-400 text-amber-200 text-xs font-extrabold text-center shadow-lg animate-pulse">
+      <span id="pathBreachText">⚠️ 궤도 미사일 폭격 경보: 방어선 지형이 파괴되어 새로운 우회로가 개방됩니다!</span>
+    </div>
+
+    <!-- Collapsible Wave Intel Comparison Grid -->
+    <div id="waveIntelDrawer" class="hidden mt-1-5 glass-panel rounded-2xl p-3 border-amber-400/40 shadow-2xl">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-bold text-amber-200">다음 웨이브 괴수 정찰 · 보스 경로 배정 · 예상 돌파 피해</span>
+        <span class="text-10 text-slate-400">배너를 다시 클릭하면 접힙니다</span>
+      </div>
+      <div id="waveIntelList" class="grid grid-cols-1 sm-grid-cols-2 gap-2"></div>
+    </div>
+  </div>
+
+  <!-- Active Augments Drawer -->
+  <aside id="augmentDrawer" class="hidden fixed top-16 right-4 z-30 w-80 glass-panel rounded-2xl p-4 border-violet-400/50">
+    <div class="flex items-center justify-between border-b border-slate-700/70 pb-2 mb-2-5">
+      <div>
+        <h3 class="font-bold text-sm text-violet-300">장착된 전술 증강 모듈 (3W 주기 지급)</h3>
+        <div class="text-10 text-amber-300">⏸ 열람 중 전투 자동 일시정지</div>
+      </div>
+      <button id="btnCloseAugmentDrawer" class="text-slate-400 hover-text-white text-sm font-bold cursor-pointer px-1">✕</button>
+    </div>
+    <div id="activeAugmentList" class="max-h-72 overflow-y-auto space-y-2 text-xs">
+      <div class="text-slate-400 text-center py-4">아직 획득한 전술 증강이 없습니다.</div>
+    </div>
+  </aside>
+
+  <!-- Right-Side Tower Inspector -->
+  <aside id="towerInspector" class="hidden fixed right-4 top-half -translate-y-half z-20 w-72 glass-panel rounded-2xl p-3-5 border-amber-400/45 transition-all">
+    <div class="flex items-center justify-between border-b border-slate-700/70 pb-2">
+      <div class="min-w-0">
+        <div class="flex items-center gap-1-5">
+          <h3 id="inspName" class="font-bold text-sm text-white truncate">중기관포 벙커 [Lv.1]</h3>
+          <span id="inspLevel" class="font-orbitron text-11 font-bold px-2 py-0-5 rounded-full bg-cyan-500/20 text-cyan-300 shrink-0">Lv.1</span>
+        </div>
+        <p id="inspRole" class="text-11 text-slate-400 mt-0-5 truncate">고속 실탄·철갑 연사 포탑</p>
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        <button id="btnMinimizeInspector" class="text-slate-300 hover-text-cyan-300 text-xs font-bold px-1-5 py-0-5 rounded bg-slate-800/80 cursor-pointer" title="패널 접기/펼치기">—</button>
+        <button id="btnCloseInspector" class="text-slate-400 hover-text-white text-sm font-bold px-1-5 py-0-5 cursor-pointer" title="닫기">✕</button>
+      </div>
+    </div>
+
+    <div id="inspectorBody">
+      <div class="mt-2-5">
+        <div class="flex items-center justify-between text-11 text-slate-400 mb-1">
+          <span>표적 우선순위</span>
+          <span id="inspTargetLabel" class="text-cyan-300 font-semibold">선두 우선</span>
+        </div>
+        <div class="grid grid-cols-4 gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+          <button data-target="FIRST" class="target-btn py-1 rounded-lg text-11 font-bold bg-cyan-500/25 text-cyan-200 border border-cyan-400/50 cursor-pointer">선두</button>
+          <button data-target="LAST" class="target-btn py-1 rounded-lg text-11 font-bold text-slate-400 hover-text-white cursor-pointer">후미</button>
+          <button data-target="STRONG" class="target-btn py-1 rounded-lg text-11 font-bold text-slate-400 hover-text-white cursor-pointer">강적</button>
+          <button data-target="WEAK" class="target-btn py-1 rounded-lg text-11 font-bold text-slate-400 hover-text-white cursor-pointer">약적</button>
+        </div>
+      </div>
+
+      <div id="standardUpgradeBox" class="mt-2-5 space-y-1-5 text-xs">
+        <div class="flex justify-between items-center bg-slate-900/70 rounded-lg px-2-5 py-1-5">
+          <span class="text-slate-400">공격력</span>
+          <span class="font-orbitron font-semibold text-white"><span id="inspDamage">24</span> <span id="inspDamageNext" class="text-emerald-400 text-11">+14</span></span>
+        </div>
+        <div class="flex justify-between items-center bg-slate-900/70 rounded-lg px-2-5 py-1-5">
+          <span class="text-slate-400">사거리</span>
+          <span class="font-orbitron font-semibold text-white"><span id="inspRange">185</span> <span id="inspRangeNext" class="text-emerald-400 text-11">+25</span></span>
+        </div>
+        <div class="flex justify-between items-center bg-slate-900/70 rounded-lg px-2-5 py-1-5">
+          <span class="text-slate-400">공격 속도</span>
+          <span class="font-orbitron font-semibold text-white"><span id="inspRate">2.25/s</span> <span id="inspRateNext" class="text-emerald-400 text-11">+0.45</span></span>
+        </div>
+        <div class="grid grid-cols-2 gap-1-5 text-11">
+          <div class="flex justify-between items-center bg-slate-950/60 rounded-lg px-2-5 py-1-5 border border-slate-800/80">
+            <span class="text-slate-400">직접 피해</span>
+            <span id="inspTowerDamage" class="font-orbitron font-semibold text-cyan-300">0</span>
+          </div>
+          <div class="flex justify-between items-center bg-slate-950/60 rounded-lg px-2-5 py-1-5 border border-slate-800/80">
+            <span class="text-slate-400">시너지 / 격파</span>
+            <span id="inspTowerKills" class="font-orbitron font-semibold text-fuchsia-300">0 / 0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-2 bg-cyan-950/40 border border-cyan-500/20 rounded-lg px-2-5 py-1-5 text-11 text-cyan-200 leading-snug">
+        <span id="inspSpecial">원소 시너지 효과</span>
+      </div>
+
+      <div class="mt-2 flex justify-end">
+        <button id="btnToggleRange" type="button" aria-pressed="true" class="px-2-5 py-1 rounded-lg bg-slate-900/80 border border-slate-700/80 text-11 font-semibold text-cyan-300 hover-border-cyan-400/50 cursor-pointer">
+          사거리 표시 중
+        </button>
+      </div>
+
+      <div class="mt-2-5 flex flex-col gap-1-5">
+        <button id="btnUpgradeTower" class="w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-between bg-emerald-500/20 hover-bg-emerald-500/30 border border-emerald-400/50 text-emerald-200 transition cursor-pointer disabled-opacity-40">
+          <span id="inspUpgradeLabel">★ Lv.2 강화</span>
+          <span id="inspUpgradeCost" class="font-orbitron font-bold text-emerald-300">75 ⚡</span>
+        </button>
+
+        <div id="specBranchBox" class="hidden space-y-1-5">
+          <div class="text-11 font-bold text-fuchsia-300 text-center">★ Lv.3 전술 진화 선택 ★</div>
+          <button id="btnSpecA" class="w-full p-2 rounded-xl text-left bg-cyan-950/70 hover-bg-cyan-900/80 border border-cyan-400/50 transition cursor-pointer disabled-opacity-40">
+            <div class="flex justify-between items-center text-xs font-bold text-cyan-200">
+              <span id="specAName">진화 A</span>
+              <span id="specACost" class="font-orbitron text-amber-300">165 ⚡</span>
+            </div>
+            <div id="specADesc" class="text-10 text-slate-300 mt-0-5 leading-tight">설명</div>
+          </button>
+          <button id="btnSpecB" class="w-full p-2 rounded-xl text-left bg-fuchsia-950/70 hover-bg-fuchsia-900/80 border border-fuchsia-400/50 transition cursor-pointer disabled-opacity-40">
+            <div class="flex justify-between items-center text-xs font-bold text-fuchsia-200">
+              <span id="specBName">진화 B</span>
+              <span id="specBCost" class="font-orbitron text-amber-300">165 ⚡</span>
+            </div>
+            <div id="specBDesc" class="text-10 text-slate-300 mt-0-5 leading-tight">설명</div>
+          </button>
+        </div>
+
+        <button id="btnSellTower" class="w-full py-1-5 px-3 rounded-xl font-semibold text-xs flex items-center justify-between bg-rose-500/15 hover-bg-rose-500/25 border border-rose-400/35 text-rose-200 transition cursor-pointer">
+          <span>포탑 철거 (75% 회수)</span>
+          <span id="inspSellRefund" class="font-orbitron font-bold text-rose-300">+45 ⚡</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Bottom Tactical Dock -->
+  <footer class="fixed bottom-3 left-3 right-3 z-20 flex flex-wrap items-end justify-between gap-2 pointer-events-none">
+    <div class="flex flex-wrap items-center gap-1-5 pointer-events-auto">
+      <button id="btnSkillOrbital" class="glass-card rounded-2xl px-2-5 py-2 text-left flex items-center gap-2 cursor-pointer relative overflow-hidden" title="단축키 [Q] - 지정 구역 궤도 이온 포격">
+        <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300 text-base">☄️</div>
+        <div>
+          <div class="flex items-center gap-1">
+            <span class="font-bold text-xs text-white">궤도 폭격</span>
+            <span class="text-10 font-orbitron px-1 rounded bg-slate-800 text-amber-300">[Q]</span>
+          </div>
+          <div class="text-10 text-slate-300">광역 이온</div>
+        </div>
+        <div id="cdOverlayOrbital" class="hidden absolute inset-0 bg-slate-950/85 items-center justify-center font-orbitron text-sm font-bold text-amber-300">30s</div>
+      </button>
+
+      <button id="btnSkillChrono" class="glass-card rounded-2xl px-2-5 py-2 text-left flex items-center gap-2 cursor-pointer relative overflow-hidden" title="단축키 [W] - 4.5초간 모든 적 감속 및 포탑 공속 +35%">
+        <div class="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/50 flex items-center justify-center text-indigo-300 text-base">⏳</div>
+        <div>
+          <div class="flex items-center gap-1">
+            <span class="font-bold text-xs text-white">시간 정지</span>
+            <span class="text-10 font-orbitron px-1 rounded bg-slate-800 text-indigo-300">[W]</span>
+          </div>
+          <div class="text-10 text-slate-300">감속+가속</div>
+        </div>
+        <div id="cdOverlayChrono" class="hidden absolute inset-0 bg-slate-950/85 items-center justify-center font-orbitron text-sm font-bold text-indigo-300">36s</div>
+      </button>
+
+      <button id="btnSkillOverdrive" class="glass-card rounded-2xl px-2-5 py-2 text-left flex items-center gap-2 cursor-pointer relative overflow-hidden border-fuchsia-500/40" title="단축키 [E] - 에테르를 소모하여 6초간 전 포탑 공속 +55%, 치명타 +25%, 연쇄 스파크 폭주">
+        <div class="w-8 h-8 rounded-xl bg-fuchsia-500/20 border border-fuchsia-400/50 flex items-center justify-center text-fuchsia-300 text-base">🔥</div>
+        <div>
+          <div class="flex items-center gap-1">
+            <span class="font-bold text-xs text-fuchsia-200">전술 과부하</span>
+            <span class="text-10 font-orbitron px-1 rounded bg-slate-800 text-fuchsia-300">[E]</span>
+          </div>
+          <div id="costSkillOverdrive" class="font-orbitron text-10 font-bold text-amber-300">140 ⚡</div>
+        </div>
+        <div id="cdOverlayOverdrive" class="hidden absolute inset-0 bg-slate-950/85 items-center justify-center font-orbitron text-sm font-bold text-fuchsia-300">22s</div>
+      </button>
+
+      <div class="flex flex-col gap-1">
+        <button id="btnBuyCoreRepair" class="glass-card rounded-xl px-2-5 py-1 text-left flex items-center justify-between gap-2 cursor-pointer border-emerald-500/35" title="에테르를 소모해 코어 내구도를 +3 보강합니다">
+          <span class="text-10 font-bold text-emerald-300">♥ 코어 보강 +3</span>
+          <span id="costCoreRepair" class="font-orbitron text-10 font-bold text-white">120 ⚡</span>
+        </button>
+        <button id="btnBuyCooldownReset" class="glass-card rounded-xl px-2-5 py-1 text-left flex items-center justify-between gap-2 cursor-pointer border-sky-500/35" title="에테르를 소모해 스킬 쿨타임을 즉시 초기화합니다">
+          <span class="text-10 font-bold text-sky-300">🛰️ 스킬 쿨초기화</span>
+          <span id="costCooldownReset" class="font-orbitron text-10 font-bold text-white">150 ⚡</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tower Blueprints -->
+    <div class="flex items-center gap-1-5 pointer-events-auto overflow-x-auto max-w-full pb-0-5">
+      <button data-tower="PULSE" aria-pressed="true" class="tower-card glass-card glass-card-active rounded-2xl px-2-5 py-2 text-left min-w-116 cursor-pointer">
+        <div class="flex items-center justify-between">
+          <span class="text-10 font-orbitron px-1-5 py-0-5 rounded bg-cyan-500/20 text-cyan-300 font-bold">[1]</span>
+          <span id="costLabelPULSE" class="font-orbitron text-xs font-extrabold text-cyan-300">60 ⚡</span>
+        </div>
+        <div class="font-bold text-xs text-white mt-1">중기관포 벙커</div>
+        <div class="text-10 text-slate-400">실탄 연사 · 과부하</div>
+      </button>
+
+      <button data-tower="CRYO" aria-pressed="false" class="tower-card glass-card rounded-2xl px-2-5 py-2 text-left min-w-116 cursor-pointer">
+        <div class="flex items-center justify-between">
+          <span class="text-10 font-orbitron px-1-5 py-0-5 rounded bg-sky-500/20 text-sky-300 font-bold">[2]</span>
+          <span id="costLabelCRYO" class="font-orbitron text-xs font-extrabold text-sky-300">90 ⚡</span>
+        </div>
+        <div class="font-bold text-xs text-white mt-1">빙결 냉각탑</div>
+        <div class="text-10 text-slate-400">광역 둔화 · 빙결</div>
+      </button>
+
+      <button data-tower="TESLA" aria-pressed="false" class="tower-card glass-card rounded-2xl px-2-5 py-2 text-left min-w-116 cursor-pointer">
+        <div class="flex items-center justify-between">
+          <span class="text-10 font-orbitron px-1-5 py-0-5 rounded bg-purple-500/20 text-purple-300 font-bold">[3]</span>
+          <span id="costLabelTESLA" class="font-orbitron text-xs font-extrabold text-purple-300">135 ⚡</span>
+        </div>
+        <div class="font-bold text-xs text-white mt-1">아크 테슬라</div>
+        <div class="text-10 text-slate-400">연쇄 감쇠 · 초전도</div>
+      </button>
+
+      <button data-tower="MORTAR" aria-pressed="false" class="tower-card glass-card rounded-2xl px-2-5 py-2 text-left min-w-116 cursor-pointer">
+        <div class="flex items-center justify-between">
+          <span class="text-10 font-orbitron px-1-5 py-0-5 rounded bg-amber-500/20 text-amber-300 font-bold">[4]</span>
+          <span id="costLabelMORTAR" class="font-orbitron text-xs font-extrabold text-amber-300">165 ⚡</span>
+        </div>
+        <div class="font-bold text-xs text-white mt-1">에테르 중박격포</div>
+        <div class="text-10 text-slate-400">곡사 폭격 · 파쇄</div>
+      </button>
+    </div>
+
+    <!-- Wave Controls -->
+    <div class="flex items-center gap-1-5 pointer-events-auto">
+      <button id="btnAutoWave" type="button" aria-pressed="false" class="glass-panel rounded-2xl px-3 py-3 text-xs font-bold text-slate-300 hover-text-cyan-200 cursor-pointer flex items-center gap-1-5">
+        <span>자동 진행</span>
+        <span id="autoWaveState" class="text-slate-400">OFF</span>
+      </button>
+
+      <button id="btnNextWave" class="kr-battle-btn rounded-2xl px-4 py-3 font-extrabold text-xs sm-text-sm flex items-center gap-2 cursor-pointer">
+        <span id="btnNextWaveLabel">1웨이브 시작</span>
+        <span class="font-orbitron text-xs">▶</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- =========================================================================
+       V9 MAIN MENU CREST OVERLAY
+       ========================================================================= -->
+  <div id="mainMenuOverlay" class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-4">
+    <div class="kr-crest-panel rounded-3xl max-w-xl w-full p-6 sm-p-7 text-center">
+      <div class="inline-flex items-center gap-2 px-3-5 py-1 rounded-full bg-amber-500/15 border border-amber-400/50 text-amber-300 text-11 font-orbitron tracking-widest mb-3">
+        ⚔️ AETHER BASTION // V9 TACTICAL WARFARE
+      </div>
+
+      <h1 class="font-crest text-3xl sm-text-5xl font-black tracking-wide text-gradient-crest">
+        AETHER BASTION
+      </h1>
+      <p class="mt-2 text-xs sm-text-sm text-amber-100/80 leading-relaxed">
+        제1전선 튜토리얼부터 제6전선 오메가 성채까지, 확장되는 광역 전장과 궤도 폭격 돌파로에 맞서 요새 방어선을 지휘하십시오!
+      </p>
+
+      <div class="mt-4 grid grid-cols-3 gap-2 bg-slate-950/80 border border-amber-500/40 rounded-2xl p-3 text-center">
+        <div>
+          <div class="text-10 text-slate-400 uppercase font-orbitron">BEST SCORE</div>
+          <div id="menuBestScore" class="font-orbitron text-base font-extrabold text-amber-300 mt-0-5">0</div>
+        </div>
+        <div>
+          <div class="text-10 text-slate-400 uppercase font-orbitron">CAMPAIGN STARS</div>
+          <div id="menuStageProgress" class="font-orbitron text-base font-extrabold text-amber-300 mt-0-5">★ 0 / 18 훈장</div>
+        </div>
+        <div>
+          <div class="text-10 text-slate-400 uppercase font-orbitron">SAVE ARCHIVES</div>
+          <div id="menuSaveCount" class="font-orbitron text-base font-extrabold text-cyan-300 mt-0-5">0개 슬롯 보관 중</div>
+        </div>
+      </div>
+
+      <div class="mt-5 space-y-2-5">
+        <button id="btnMenuCampaign" type="button" class="kr-battle-btn w-full rounded-2xl py-3-5 px-5 font-black text-base sm-text-lg tracking-wide cursor-pointer flex items-center justify-center gap-2">
+          <span>⚔️ 캠페인 출격 (6개 전선 월드맵)</span>
+        </button>
+
+        <button id="btnMenuEndless" type="button" class="kr-menu-banner-btn w-full rounded-2xl py-3 px-4 font-bold text-sm text-cyan-200 cursor-pointer flex items-center justify-between">
+          <span>♾️ 무한 시드 작전 (ENDLESS CHALLENGE)</span>
+          <span class="font-orbitron text-xs text-cyan-300">SELECT →</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2-5">
+          <button id="btnMenuLoad" type="button" class="kr-menu-banner-btn rounded-2xl py-2-5 px-3 font-bold text-xs sm-text-sm text-amber-200 cursor-pointer flex items-center justify-center gap-1-5">
+            <span>💾 작전 불러오기</span>
+          </button>
+          <button id="btnMenuCodex" type="button" class="kr-menu-banner-btn rounded-2xl py-2-5 px-3 font-bold text-xs sm-text-sm text-emerald-200 cursor-pointer flex items-center justify-center gap-1-5">
+            <span>📖 전술 도감</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       V9 6-STAGE INTERACTIVE CAMPAIGN WORLD MAP SCREEN
+       ========================================================================= -->
+  <div id="stageSelectOverlay" class="hidden fixed inset-0 z-40 bg-slate-950">
+    <canvas id="worldMapCanvas" width="1280" height="720" class="block w-full h-full"></canvas>
+
+    <div class="fixed top-3 left-3 right-3 z-45 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+      <div class="kr-crest-panel rounded-2xl px-4 py-2 pointer-events-auto">
+        <div id="stageSelectModeBadge" class="text-10 font-orbitron tracking-widest text-amber-300 uppercase">KINGDOM CAMPAIGN MAP // 작전 지역 선택</div>
+        <h2 class="font-crest text-lg sm-text-xl font-black text-white">에테르 왕국 6대 전선 지도</h2>
+      </div>
+
+      <div id="stageSeedBar" class="hidden kr-crest-panel rounded-2xl px-3-5 py-2 flex items-center gap-2 pointer-events-auto">
+        <span class="text-xs font-bold text-fuchsia-300">시드:</span>
+        <input id="stageSeedInput" type="text" value="AETHER-2026" maxlength="20" class="bg-slate-950 border border-slate-700 rounded-lg px-2-5 py-1 font-orbitron text-xs text-white w-32" />
+        <button id="btnStageRandomSeed" type="button" class="px-2-5 py-1 rounded-lg bg-slate-800 hover-bg-slate-700 text-xs font-bold text-cyan-300 cursor-pointer">🎲</button>
+      </div>
+
+      <button id="btnStageBackToMenu" type="button" class="kr-menu-banner-btn rounded-2xl px-4 py-2-5 text-xs font-bold text-amber-200 cursor-pointer pointer-events-auto">
+        ← 메인 메뉴로
+      </button>
+    </div>
+
+    <!-- Bottom-Right Stage Briefing Parchment Scroll -->
+    <div class="fixed bottom-6 right-6 z-45 w-96 max-w-full kr-parchment-panel rounded-3xl p-5">
+      <div class="flex items-center justify-between border-b border-amber-500/40 pb-2 mb-2">
+        <span id="briefingStageCode" class="font-orbitron text-xs font-extrabold text-amber-300">STAGE I · 1440×810</span>
+        <span id="briefingStageDiff" class="text-11 font-bold text-emerald-300">TUTORIAL // 6 웨이브 입문 작전</span>
+      </div>
+      <h3 id="briefingStageName" class="font-crest text-xl font-black text-white">제1전선: 신병 훈련 협곡 (튜토리얼)</h3>
+      <p id="briefingStageDesc" class="text-xs text-amber-100/85 mt-1-5 leading-relaxed">
+        [튜토리얼 작전 · 총 6웨이브] 요새 거점(망치 슬롯)에 포탑을 배치하고 업그레이드하며 원소 시너지를 익히는 입문 전장입니다.
+      </p>
+
+      <div id="briefingStageStats" class="mt-3 flex flex-wrap items-center justify-between gap-2 bg-slate-950/75 rounded-xl px-3 py-2 text-11 text-slate-300 border border-amber-500/30"></div>
+
+      <div id="briefingStageRank" class="mt-2 text-11 font-bold text-amber-300 text-center">
+        신병 튜토리얼 구역 · 클리어 시 제2전선 해금
+      </div>
+
+      <button id="btnDeployStage" type="button" class="mt-3 w-full kr-battle-btn rounded-2xl py-3 font-black text-sm sm-text-base tracking-wide cursor-pointer">
+        ⚔️ 전투 개시 (TO BATTLE!)
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       V9 SAVE / LOAD MANAGER MODAL
+       ========================================================================= -->
+  <div id="saveLoadModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
+    <div class="kr-crest-panel rounded-3xl max-w-2xl w-full p-5 sm-p-6 max-h-90vh overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+        <div>
+          <span class="text-10 font-orbitron tracking-widest text-amber-300 uppercase">TACTICAL DATA ARCHIVE</span>
+          <h2 class="text-lg sm-text-xl font-black text-white">💾 전술 작전 저장 및 불러오기</h2>
+        </div>
+        <button id="btnCloseSaveModal" type="button" class="text-slate-400 hover-text-white text-lg font-bold cursor-pointer px-2">✕</button>
+      </div>
+
+      <div id="saveModalFeedback" class="hidden"></div>
+      <div id="saveSlotsContainer" class="space-y-2-5"></div>
+
+      <div class="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+        <div class="text-11 text-slate-400">로컬 PC 파일(`.json`)로 내보내거나 불러올 수 있습니다.</div>
+        <div class="flex items-center gap-2">
+          <button id="btnExportSaveFile" type="button" class="px-3 py-1-5 rounded-xl bg-slate-800 hover-bg-slate-700 border border-slate-600 text-xs font-bold text-cyan-200 cursor-pointer">
+            📤 파일로 내보내기
+          </button>
+          <button id="btnImportSaveFile" type="button" class="px-3 py-1-5 rounded-xl bg-slate-800 hover-bg-slate-700 border border-slate-600 text-xs font-bold text-amber-200 cursor-pointer">
+            📥 파일에서 불러오기
+          </button>
+          <input id="importSaveFileInput" type="file" accept=".json,application/json" class="hidden" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       V9 LoL ARAM-STYLE SEQUENTIAL ("따다닥!") 3-CARD AUGMENT DRAFT MODAL
+       ========================================================================= -->
+  <div id="augmentModal" class="hidden augment-modal-animate fixed inset-0 z-40 flex items-center justify-center bg-slate-950/82 backdrop-blur-md p-4">
+    <div class="kr-crest-panel rounded-3xl max-w-3xl w-full p-6 border-violet-400/50">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div>
+          <span class="text-11 font-orbitron tracking-widest text-amber-300 uppercase">HEXTECH TACTICAL AUGMENT // 3-WAVE MILESTONE</span>
+          <h2 class="text-xl sm-text-2xl font-black text-white">전술 증강 3종 중 1개 선택</h2>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnRerollAugments" class="px-3 py-1-5 rounded-xl bg-violet-500/20 hover-bg-violet-500/35 border border-violet-400/50 text-xs font-bold text-violet-200 cursor-pointer disabled-opacity-40">
+            🎲 전술 재탐색 (1회 무료)
+          </button>
+          <button id="btnSkipAugment" class="px-3 py-1-5 rounded-xl bg-slate-800 hover-bg-slate-700 text-xs font-semibold text-slate-300 cursor-pointer">
+            건너뛰기 (+45⚡)
+          </button>
+        </div>
+      </div>
+
+      <div id="augmentCardsContainer" class="grid grid-cols-1 md-grid-cols-3 gap-3-5"></div>
+    </div>
+  </div>
+
+  <!-- 2-Column Live Battle Telemetry Report Modal -->
+  <div id="reportModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/82 backdrop-blur-md p-4">
+    <div class="glass-panel rounded-3xl max-w-5xl w-full p-5 sm-p-6 border-emerald-400/40 max-h-90vh overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-700/80 pb-3 mb-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-white">📊 실시간 2단 전술 전투 통계 보고서</h2>
+          <div class="text-11 text-amber-300">⏸ 열람 중 전투 자동 일시정지 · 직접 피해 vs 원소 시너지 피해 분리 집계</div>
+        </div>
+        <button id="btnCloseReport" class="text-slate-400 hover-text-white text-lg font-bold cursor-pointer px-2">✕</button>
+      </div>
+      <div id="reportBody"></div>
+    </div>
+  </div>
+
+  <!-- Tactical Codex / Help Modal -->
+  <div id="helpModal" class="hidden fixed inset-0 z-60 flex items-center justify-center bg-slate-950/78 backdrop-blur-md p-4">
+    <div class="kr-crest-panel rounded-3xl max-w-xl w-full p-6 max-h-85vh overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-700/80 pb-3 mb-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-white">전술 도감 & 6대 전선 가이드 (V9)</h2>
+          <div class="text-10 text-amber-300">⏸ 도감 열람 중 전투 자동 일시정지</div>
+        </div>
+        <button id="btnCloseHelp" class="text-slate-400 hover-text-white text-lg font-bold cursor-pointer">✕</button>
+      </div>
+      <div class="space-y-3 text-xs sm-text-sm text-slate-300 leading-relaxed">
+        <div class="bg-slate-900/75 p-3 rounded-xl border border-slate-800">
+          <div class="font-bold text-amber-300 mb-1">1. 6개 전선 확장 & 3스테이지 주기 깜짝 지형 폭격</div>
+          <p><strong>제1전선(6W 튜토리얼)</strong>을 시작으로 스테이지가 오를수록 전장이 최대 <strong>1920×1080</strong>까지 넓어지고 길목과 웨이브 수가 증가합니다. <strong>3스테이지(7W)</strong>와 <strong>6스테이지(11W)</strong>에는 깜짝 궤도/벙커버스터 폭격으로 새 돌파로가 열리며, <strong>폭격으로 파괴된 거점에는 이후 타워를 설치할 수 없습니다.</strong></p>
+        </div>
+        <div class="bg-slate-900/75 p-3 rounded-xl border border-slate-800">
+          <div class="font-bold text-fuchsia-300 mb-1">2. 포탑 레벨 외형 진화 & 원소 시너지</div>
+          <p>포탑을 <strong>Lv.1 → Lv.2 → Lv.3(진화) → Lv.4(초월)</strong>로 강화할 때마다 포탑 하단 등급 배지와 포신·장갑 외형이 함께 진화합니다.<br/>
+             <strong class="text-purple-300">초전도 (빙결+테슬라)</strong> · <strong class="text-sky-300">열충격 파쇄 (빙결+박격포)</strong> · <strong class="text-cyan-300">과부하 (감전+중기관포)</strong> 반응을 적극 활용하세요.</p>
+        </div>
+      </div>
+      <button id="btnCloseHelpPrimary" class="mt-4 w-full py-2-5 rounded-xl bg-amber-500/20 hover-bg-cyan-500/30 border border-amber-400/50 text-amber-200 font-bold text-sm cursor-pointer">
+        확인 및 닫기
+      </button>
+    </div>
+  </div>
+
+  <!-- 2-Column Victory / Defeat Modal -->
+  <div id="gameOverModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
+    <div class="kr-crest-panel rounded-3xl max-w-5xl w-full p-5 sm-p-6 max-h-92vh overflow-y-auto">
+      <div class="text-center">
+        <div id="endModalBadge" class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-300 text-xs font-bold tracking-wider mb-2">
+          DEFEAT // 성채 방어선 붕괴
+        </div>
+        <h2 id="gameOverTitle" class="font-crest text-3xl sm-text-4xl font-black text-white tracking-wide">DEFEAT</h2>
+        <p id="endModalSubtitle" class="mt-1 text-xs text-slate-300">에테르 바스티온 코어의 에너지가 완전히 소진되었습니다.</p>
+      </div>
+
+      <div class="mt-3 grid grid-cols-2 sm-grid-cols-4 gap-2 bg-slate-900/85 rounded-2xl p-3 border border-slate-800 text-center">
+        <div>
+          <div class="text-11 text-slate-400">도달 기록</div>
+          <div id="finalWave" class="font-orbitron text-base font-extrabold text-cyan-300 mt-0-5">WAVE 1</div>
+        </div>
+        <div>
+          <div class="text-11 text-slate-400">최종 점수</div>
+          <div id="finalScore" class="font-orbitron text-base font-extrabold text-amber-300 mt-0-5">0</div>
+        </div>
+        <div>
+          <div class="text-11 text-slate-400">격파 / 원소 반응</div>
+          <div id="finalKills" class="font-orbitron text-base font-extrabold text-fuchsia-300 mt-0-5">0기 / 0회</div>
+        </div>
+        <div>
+          <div class="text-11 text-slate-400">역대 최고 점수</div>
+          <div id="finalBestScore" class="font-orbitron text-base font-extrabold text-emerald-300 mt-0-5">0</div>
+        </div>
+      </div>
+
+      <div id="endBattleReport" class="mt-4"></div>
+
+      <div class="mt-4 grid grid-cols-2 gap-2-5">
+        <button id="btnReturnTitle" class="py-3 rounded-2xl bg-slate-800 hover-bg-slate-700 border border-slate-600 font-bold text-sm text-slate-200 cursor-pointer">
+          메인 메뉴 / 전선 지도로
+        </button>
+        <button id="btnRestartGame" class="kr-battle-btn rounded-2xl py-3 font-extrabold text-sm cursor-pointer">
+          현재 전선 즉시 재도전 (RETRY)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const modules = [
+        'config.js',
+        'stages.js',
+        'audio.js',
+        'save.js',
+        'renderer_env.js',
+        'renderer_towers.js',
+        'renderer_enemies.js',
+        'renderer.js',
+        'ui.js',
+        'game.js'
+      ];
+      function loadNext(i) {
+        if (i >= modules.length) return;
+        const s = document.createElement('script');
+        s.src = './js/' + modules[i];
+        s.onload = () => loadNext(i + 1);
+        s.onerror = () => {
+          const fallback = document.createElement('script');
+          fallback.src = './' + modules[i];
+          fallback.onload = () => loadNext(i + 1);
+          document.body.appendChild(fallback);
+        };
+        document.body.appendChild(s);
+      }
+      loadNext(0);
+    })();
+  </script>
+</body>
+</html>
